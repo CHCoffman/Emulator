@@ -57,7 +57,7 @@ void CPU::decode() {
   int32_t simm;         // signed version of immediate (I-type)
   uint32_t addr;        // jump address offset field (J-type)
 
-  opcode = instr >> 26;
+  opcode = instr >> 26; // opcode
   rs = instr >> 21 & 0x1f;
   rt = instr >> 16 & 0x1f;
   rd = instr >> 11 & 0x1f;
