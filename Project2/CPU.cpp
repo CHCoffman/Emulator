@@ -57,15 +57,15 @@ void CPU::decode() {
   int32_t simm;         // signed version of immediate (I-type)
   uint32_t addr;        // jump address offset field (J-type)
 
-  opcode = /* FIXME */
-  rs = /* FIXME */
-  rt = /* FIXME */
-  rd = /* FIXME */
-  shamt = /* FIXME */
-  funct = /* FIXME */
-  uimm = /* FIXME */
-  simm = /* FIXME */
-  addr = /* FIXME */
+  opcode = instr >> 26;
+  rs = instr >> 21 & 0x1f;
+  rt = instr >> 16 & 0x1f;
+  rd = instr >> 11 & 0x1f;
+  shamt = instr >> 6 & 0x1f;
+  funct = instr & 0x3f;
+  uimm = instr & 0xffff;
+  simm = (((signed) uimm) << 16) >> 16;
+  addr = instr & 0x3ffffff;
 
   // Hint: you probably want to give all the control signals some "safe"
   // default value here, and then override their values as necessary in each
