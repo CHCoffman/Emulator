@@ -65,7 +65,7 @@ void CPU::decode() {
   funct = instr & 0x3f;
   uimm = instr & 0xffff;
   simm = (((signed) uimm) << 16) >> 16;
-  addr = instr & 0x3ffffff;
+  addr = instr  & 0x3ffffff;
 
   // Hint: you probably want to give all the control signals some "safe"
   // default value here, and then override their values as necessary in each
@@ -105,7 +105,10 @@ void CPU::decode() {
                    break; // use prototype above, not the greensheet
         case 0x08: D(cout << "jr " << regNames[rs]);
                     writeDest = false; // result doesn't need to be in register
-                    pc = regFile[rs];
+                    aluSrc1 = regFile[rs];
+                    aluSrc2 = regFile[REG_ZERO];
+                    aluOp = ADD;
+                    pc = aluSrc1;
                    break;
         case 0x10: D(cout << "mfhi " << regNames[rd]);
                     writeDest = true;
