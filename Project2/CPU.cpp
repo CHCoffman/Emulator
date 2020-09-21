@@ -57,7 +57,7 @@ void CPU::decode() {
   int32_t simm;         // signed version of immediate (I-type)
   uint32_t addr;        // jump address offset field (J-type)
 
-  opcode = instr >> 26; // opcode
+  opcode = instr >> 26; 
   rs = instr >> 21 & 0x1f;
   rt = instr >> 16 & 0x1f;
   rd = instr >> 11 & 0x1f;
@@ -71,34 +71,97 @@ void CPU::decode() {
   // default value here, and then override their values as necessary in each
   // case statement below!
 
+  /* safe values so comp doesn't freak out.
+  basically set everything to false and zero*/
+  opIsLoad = false;
+  opIsStore = false;
+  opIsMultDiv = false;
+  writeDest = false;
+  destReg = regFile[REG_ZERO];
+  aluSrc1 = regFile[REG_ZERO];
+  aluSrc2 = regFile[REG_ZERO];
+  storeData = 0;
+  // Maybe need one for aluOP? 
+  aluOp = ADD;
+
+
   D(cout << "  " << hex << setw(8) << pc - 4 << ": ");
   switch(opcode) {
     case 0x00:
       switch(funct) {
         case 0x00: D(cout << "sll " << regNames[rd] << ", " << regNames[rs] << ", " << dec << shamt);
-                   break; // use prototype above, not the greensheet
+                    writeDest = true;
+                    aluOp = SHF_L;
+                    destReg = rd;
+                    aluSrc1 = regFile[rs];
+                    aluSrc2 = shamt;
+                  break; // use prototype above, not the greensheet
         case 0x03: D(cout << "sra " << regNames[rd] << ", " << regNames[rs] << ", " << dec << shamt);
+                    writeDest = true;
+                    aluOp = SHF_R;
+                    destReg = rd;
+                    aluSrc1 = regFile[rs];
+                    aluSrc2 = shamt;
                    break; // use prototype above, not the greensheet
         case 0x08: D(cout << "jr " << regNames[rs]);
+                    writeDest = false; // result doesn't need to be in register
+                    pc = regFile[rs];
                    break;
         case 0x10: D(cout << "mfhi " << regNames[rd]);
+                    writeDest = true;
+                    destReg = rd;
+                    aluOp = ADD;
+                    aluSrc1 = hi;
+                    aluSrc2 = regFile[REG_ZERO]; // just moving so use $zero at 2
                    break;
         case 0x12: D(cout << "mflo " << regNames[rd]);
+                    writeDest = true;
+                    aluOp = ADD;
+                    destReg = rd;
+                    aluSrc1 = lo;
+                    aluSrc2 = regFile[REG_ZERO];
                    break;
         case 0x18: D(cout << "mult " << regNames[rs] << ", " << regNames[rt]);
+                    writeDest = false;
+                    opIsMultDiv = true;
+                    aluOp = MUL;
+                    aluSrc1 = regFile[rs];
+                    aluSrc2 = regFile[rt];
                    break;
         case 0x1a: D(cout << "div " << regNames[rs] << ", " << regNames[rt]);
+                    writeDest = false;
+                    aluOp = DIV;
+                    opIsMultDiv = true;
+                    aluSrc1 = regFile[rs];
+                    aluSrc2 = regFile[rt];
                    break;
         case 0x21: D(cout << "addu " << regNames[rd] << ", " << regNames[rs] << ", " << regNames[rt]);
+                    writeDest = true;
+                    destReg = rd;
+                    aluOp = ADD;
+                    aluSrc1 = regFile[rs];
+                    aluSrc2 = regFile[rt];
                    break;
         case 0x23: D(cout << "subu " << regNames[rd] << ", " << regNames[rs] << ", " << regNames[rt]);
+                    writeDest = true;
+                    destReg = rd;
+                    aluOp = ADD;
+                    aluSrc1 = regFile[rs];
+                    aluSrc2 = -regFile[rt]; //same as adding negative version of add rt reg.
                    break; //hint: subtract is the same as adding a negative
         case 0x2a: D(cout << "slt " << regNames[rd] << ", " << regNames[rs] << ", " << regNames[rt]);
+                    writeDest = true;
+                    destReg = rd;
+                    aluOp = CMP_LT; 
+                    aluSrc1 = regFile[rs];
+                    aluSrc2 = regFile[rt];
                    break;
         default: cerr << "unimplemented instruction: pc = 0x" << hex << pc - 4 << endl;
       }
       break;
     case 0x02: D(cout << "j " << hex << ((pc & 0xf0000000) | addr << 2)); // P1: pc + 4
+                writeDest = false;
+                pc = (pc & 0xf0000000) | addr << 2;
                break;
     case 0x03: D(cout << "jal " << hex << ((pc & 0xf0000000) | addr << 2)); // P1: pc + 4
                writeDest = true; destReg = REG_RA; // writes PC+4 to $ra
@@ -107,15 +170,35 @@ void CPU::decode() {
                aluSrc2 = regFile[REG_ZERO]; // always reads zero
                pc = (pc & 0xf0000000) | addr << 2;
                break;
-    case 0x04: D(cout << "beq " << regNames[rs] << ", " << regNames[rt] << ", " << pc + (simm << 2));
+    case 0x04: D(cout << "beq " << regNames[rs] << ", " << regNames[rt] << ", " << pc + (simm << 2)); //FIX if statement?
+                if(regFile[rs] == regFile[rt]){
+                  pc = (pc + (simm << 2));
+                }
                break;  // read the handout carefully, update PC directly here as in jal example
-    case 0x05: D(cout << "bne " << regNames[rs] << ", " << regNames[rt] << ", " << pc + (simm << 2));
+    case 0x05: D(cout << "bne " << regNames[rs] << ", " << regNames[rt] << ", " << pc + (simm << 2)); // if rs != rt -> go
+                if(regFile[rs] != regFile[rt]){
+                  pc = (pc + (simm << 2));
+                }
                break;  // same comment as beq
     case 0x09: D(cout << "addiu " << regNames[rt] << ", " << regNames[rs] << ", " << dec << simm);
+                writeDest = true;
+                destReg = rt;
+                aluOp = ADD;
+                aluSrc1 = regFile[rs];
+                aluSrc2 = simm; // just needs the imm
                break;
     case 0x0c: D(cout << "andi " << regNames[rt] << ", " << regNames[rs] << ", " << dec << uimm);
+                writeDest = true;
+                destReg = rt;
+                aluOp = AND;
+                aluSrc1 = regFile[rs];
+                aluSrc2 = uimm;
                break;
-    case 0x0f: D(cout << "lui " << regNames[rt] << ", " << dec << simm);
+    case 0x0f: D(cout << "lui " << regNames[rt] << ", " << dec << simm); // alusrc needs to be 16
+                writeDest = true;
+                aluOp = SHF_L;
+                aluSrc1 = simm;
+                aluSrc2 = 16;
                break; //use the ALU to perform necessary op, you may set aluSrc2 = xx directly
     case 0x1a: D(cout << "trap " << hex << addr);
                switch(addr & 0xf) {
@@ -130,8 +213,19 @@ void CPU::decode() {
                }
                break;
     case 0x23: D(cout << "lw " << regNames[rt] << ", " << dec << simm << "(" << regNames[rs] << ")");
+                writeDest = true;
+                destReg = rt;
+                opIsLoad = true;
+                aluOp = ADD;
+                aluSrc1 = regFile[rs];
+                aluSrc2 = simm;
                break;  // do not interact with memory here - setup control signals for mem()
-    case 0x2b: D(cout << "sw " << regNames[rt] << ", " << dec << simm << "(" << regNames[rs] << ")");
+    case 0x2b: D(cout << "sw " << regNames[rt] << ", " << dec << simm << "(" << regNames[rs] << ")"); //FIX store so add to stored loc?
+                opIsStore = true;
+                storeData = regFile[rt];
+                aluOp = ADD;
+                aluSrc1 = regFile[rs];
+                aluSrc2 = simm;
                break;  // same comment as lw
     default: cerr << "unimplemented instruction: pc = 0x" << hex << pc - 4 << endl;
   }
