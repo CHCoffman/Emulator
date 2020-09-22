@@ -197,8 +197,9 @@ void CPU::decode() {
                 aluSrc1 = regFile[rs];
                 aluSrc2 = uimm;
                break;
-    case 0x0f: D(cout << "lui " << regNames[rt] << ", " << dec << simm); // alusrc needs to be 16
+    case 0x0f: D(cout << "lui " << regNames[rt] << ", " << dec << simm); // alusrc needs to be 16 WHY NOT DEBUG
                 writeDest = true;
+                destReg = rt;
                 aluOp = SHF_L;
                 aluSrc1 = simm;
                 aluSrc2 = 16;
